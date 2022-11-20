@@ -22,7 +22,31 @@
 // и т.д
 
 
+/*
+ИСПРАВИТЬ
++ при вводе пункта назначения с пробелом вводится только первое слово
++ тип самолёта не case-insensetive (принудительный ввод типа самолёта все заглавные?) +
++ при выводе добавить названия полей и индексы. сделать с setw()
+
++ при удалении, поиске и сортировке в пустом списке должо выводиться, что он пустой (до ввода данных)
++ так как номер уникален, реализовать удаление по номеру (по индексу можно оставить)
+
++ разрешить смену номера со своего на свой
++ после "запись с таким номером уже существует" нет предложения ввести новый номер
+
++ удаление и редактирование после сортировки сломано
++ происходит удаление записи с индексом -1
+
+сортировка сортирует большие буквы последними
++(сделать принудительный ввод пункта назначения с заглавной буквы)
+
+
+
++ тестовые примеры из failed storage.txt должны выдавать неверную запись
+*/
+
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <string>
 #include<windows.h>
@@ -31,23 +55,12 @@ using namespace std;
 int voc_size = -1;
 string* vocab;
 
-//// Для обнаружения утечек памяти
-//#define _CRTDBG_MAP_ALLOC
-//#include <stdlib.h>
-//#include <crtdbg.h>
-//#ifdef _DEBUG
-//#ifndef DBG_NEW
-//#define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
-//#define newDBG_NEW
-//#endif
-//#endif
-
 
 //VOCAB
 void get_vocab() {
 	ifstream inp_file("D:\\in-outs\\aviakassa.com-slash-airplanes.txt");
 	if (!inp_file.is_open()) {
-		cout << "Ошибка при открытии файла словаря..?\n" << endl;
+		cout << "Ошибка при открытии файла словаря\n" << endl;
 	}
 
 	if (inp_file.peek() == std::ifstream::traits_type::eof()) {
@@ -78,53 +91,46 @@ void print_vocab() {
 }
 
 //STRUCTS
-struct aflot {
-	string where;
+struct AEROFLOT {
+	string destination;
 	int num;
 	string type;
 
-	aflot(string where, int num, string type);
-	aflot();
-	bool operator ==(aflot thing);
-	void operator =(aflot thing);
+	AEROFLOT(string destination, int num, string type);
+	AEROFLOT();
+	bool operator ==(AEROFLOT thing);
+	void operator =(AEROFLOT thing);
 };
 
-aflot::aflot(string where, int num, string type) {
-	this->where = where;
+AEROFLOT::AEROFLOT(string destination, int num, string type) {
+	this->destination = destination;
 	this->num = num;
 	this->type = type;
 }
-aflot::aflot() {
-	this->where = "nowhere";
+AEROFLOT::AEROFLOT() {
+	this->destination = "nowhere";
 	this->num = 0;
 	this->type = "no type";
 };
-bool aflot:: operator ==(aflot thing) {
-	return (this->where == thing.where && this->num == thing.num && this->type == thing.type);
+bool AEROFLOT:: operator ==(AEROFLOT thing) {
+	return (this->destination == thing.destination && this->num == thing.num && this->type == thing.type);
 }
-void aflot :: operator =(aflot thing) {
+void AEROFLOT :: operator =(AEROFLOT thing) {
 	this->num = thing.num;
-	this->where = thing.where;
+	this->destination = thing.destination;
 	this->type = thing.type;
 }
 
 struct LinearList {
 	LinearList* next;
-	aflot entry;
+	AEROFLOT entry;
 
-	LinearList* getTail();
 	int getSize();
 	LinearList* getIndex(int index);
 	LinearList();
 	void print();
-
 };
 
-LinearList* LinearList::getTail() {
-	LinearList* tmp = this;
-	while (tmp->next != NULL) tmp = tmp->next;
-	return tmp;
-}
 int LinearList::getSize() {
 	if (this == NULL) return 0;
 	int s = 1;
@@ -142,14 +148,21 @@ LinearList* LinearList::getIndex(int index) {
 }
 LinearList::LinearList() {
 	this->next = NULL;
-	this->entry = aflot();
+	this->entry = AEROFLOT();
 };
 void LinearList::print() {
 	LinearList* tmp = this;
-	if (tmp == NULL) cout << "List empty." << endl;
+	int i = 0;
+	if (tmp == NULL) { cout << "Пустой список." << endl; return; }
+	cout << " №    рейс      тип    пункт назначения" << endl;
+	cout << "----------------------------------------" << endl;
 	while (tmp != NULL) {
-		cout << tmp->entry.where << " " << tmp->entry.num << " " << tmp->entry.type << " " << endl;
+		cout << "[" << i << "] ";
+		cout << setw(5) << tmp->entry.num << " ";
+		cout << setw(10) << tmp->entry.type << "   ";
+		cout << tmp->entry.destination << endl;
 		tmp = tmp->next;
+		i++;
 	}
 }
 
@@ -161,6 +174,19 @@ bool valid_type(string type) {
 	}
 	return false;
 }
+void to_upper(string& s) {
+	for (int i = 0; i < s.size(); i++) {
+		(s[i] = toupper(s[i]));
+	}
+}
+void to_uplow(string& s) {
+	if (s.size() == 0) return;
+	
+	s[0] = toupper(s[0]);
+	for (int i = 1; i < s.size(); i++) {
+		(s[i] = tolower(s[i]));
+	}
+}
 bool uniq_num(LinearList* head, int num) {
 	LinearList* tmp = head;
 	while (tmp != NULL) {
@@ -170,12 +196,14 @@ bool uniq_num(LinearList* head, int num) {
 	return true;
 }
 int inp_number() {
-	int inpn;
+	int inpn = -1;
+	cin.clear();
+	cin.ignore(cin.rdbuf()->in_avail());
 	cin >> inpn;
-	while (cin.fail()) {
+	while (cin.fail() || inpn < 0) {
 		cin.clear();
 		cin.ignore(cin.rdbuf()->in_avail());
-		cout << "\nВведённая строка должна содержать только цифры. Введите заново: ";
+		cout << "Введённая строка должна содержать положительное число. Введите заново: ";
 		cin >> inpn;
 	}
 	return inpn;
@@ -186,65 +214,71 @@ string inp_type() {
 	cin.ignore(cin.rdbuf()->in_avail());
 	cout << "Введите тип самолёта. Чтобы вывести список типов, нажмите Enter: ";
 	getline(cin, inp);
+	to_upper(inp);
 	while (!valid_type(inp)) {
 		if (inp.empty()) {
 			print_vocab();
 		}
 		else
-			cout << "\nТакого типа нет в словаре.\n";
+			cout << "Такого типа нет в словаре.\n";
 		cin.clear();
 		cin.ignore(cin.rdbuf()->in_avail());
 		cout << "Введите тип самолёта. Чтобы вывести список типов, нажмите Enter: ";
 		getline(cin, inp);
+		to_upper(inp);
 	}
 	return inp;
 }
-string inp_where() {
+string inp_destination() {
 	string inp;
 	cout << "Введите пункт назначения: ";
-	cin >> inp;
+	cin.clear();
+	cin.ignore(cin.rdbuf()->in_avail());
+	getline(cin, inp);
 	while (inp.find('/') != string::npos) {
 		cin.clear();
 		cin.ignore(cin.rdbuf()->in_avail());
-		cout << "\nНазвание пункта не должно содержать знака '/'.\n";
+		cout << "Название пункта не должно содержать знака '/'.\n";
 		cout << "Введите пункт назначения: ";
-		cin >> inp;
+		getline(cin, inp);
 	}
+	to_uplow(inp);
 	return inp;
 }
-aflot inp_entry(LinearList* head) {
-	aflot new_e;
+AEROFLOT inp_entry(LinearList* head) {
+	AEROFLOT new_e;
 	string inp;
 
 	cout << "Введите номер рейса: ";
 	int inpn = inp_number();
-
 	while (!uniq_num(head, inpn)) {
-		cout << "Запись с таким номером уже существует.\n Введите номер рейса: ";
+		cout << "Запись с таким номером уже существует.\nВведите номер рейса: ";
 		inpn = inp_number();
 	}
 	new_e.num = inpn;
 
-	cout << "Введите пункт назначения: ";
-	cin >> inp;
-	while (inp.find('/') != string::npos) {
-		cin.clear();
-		cin.ignore(cin.rdbuf()->in_avail());
-		cout << "\nНазвание пункта не должно содержать знака '/'.\n" << "Введите пункт назначения: ";
-		cin >> inp;
-	}
-	new_e.where = inp;
-
 	inp = inp_type();
 	new_e.type = inp;
+
+	inp = inp_destination();
+	new_e.destination = inp;
+
 	return new_e;
 }
+bool my_str_compare(string s1, string s2) {
+	if (s1.size() != s2.size()) return false;
+	for (int i = 0; i < s1.size(); i++) {
+		if (tolower(s1[i]) != tolower(s2[i])) return false;
+	}
+	return true;
+}
+
 
 //SORTS AND SEARCH
 LinearList* merge_by(LinearList* one, LinearList* two, int by_what) {
 	LinearList* result = NULL;
 
-	/* Base cases */
+	//Base cases
 	if (one == NULL)
 		return (two);
 	else if (two == NULL)
@@ -253,13 +287,13 @@ LinearList* merge_by(LinearList* one, LinearList* two, int by_what) {
 	bool condition = false;
 	switch (by_what) {
 	case 1:
-		condition = one->entry.where.compare(two->entry.where) < 0;
-		break;
-	case 2:
 		condition = one->entry.num < two->entry.num;
 		break;
-	case 3:
+	case 2:
 		condition = one->entry.type.compare(two->entry.type) < 0;
+		break;
+	case 3:
+		condition = one->entry.destination.compare(two->entry.destination) < 0;
 		break;
 	}
 
@@ -276,8 +310,8 @@ LinearList* merge_by(LinearList* one, LinearList* two, int by_what) {
 	return (result);
 }
 void sort_by(LinearList* &h, int n, int by_what) {
+	if (n < 2) return;
 	//base case and one head??
-	if (n == 1) return;
 	LinearList* one = h;
 	LinearList* two = h->getIndex(n / 2);
 	one->getIndex((n / 2) - 1)->next = NULL;
@@ -287,11 +321,36 @@ void sort_by(LinearList* &h, int n, int by_what) {
 
 	h = merge_by(one, two, by_what);
 }
+void sort_start(LinearList*& head) {
+	if (head == NULL) {
+		cout << "Пустой список." << endl;
+		return;
+	}
+	if (head->next == NULL) {
+		cout << "Список отсортирован." << endl;
+		return;
+	}
+	int by_what = -1;
+	cout << "Введите чтобы отсортировать: 1 по номеру рейса; 2 по типу самолёта; 3 по пункту назначения." << endl;
+	cin >> by_what;
+	while (cin.fail() || (by_what < 1) || (by_what > 3)) {
+		cin.clear();
+		cin.ignore(cin.rdbuf()->in_avail());
+		cout << "Ошибка ввода, выберите действие: " << endl;
+		cin >> by_what;
+	}
+	sort_by(head, head->getSize() , by_what);
+	cout << "Список отсортирован." << endl;
+}
 bool search(LinearList*& h) { // 1 where, 2 num, 3 type
+	if (h == NULL) {
+		cout << "Пустой список." << endl;
+		return true;
+	}
 	LinearList* tmp = h;
 	int by_what;
 	bool found = false;
-	cout << "Выберите поле поиска: 1 для пункта назначения, 2 для номера, 3 для типа: ";
+	cout << "Выберите поле поиска: 1 для номера рейса, 2 для типа, 3 для пункта назначения." << endl;
 	cin >> by_what;
 	while (cin.fail() || (by_what < 1) || (by_what > 3)) {
 		cin.clear();
@@ -299,43 +358,43 @@ bool search(LinearList*& h) { // 1 where, 2 num, 3 type
 		cout << "Ошибка ввода, выберите действие: "; cin >> by_what;
 	}
 	string anything;
-	int num;
+	int num = 0;
 	//input + checks
 	switch (by_what) {
 	case 1:
-		anything = inp_where();
-		break;
-	case 2:
 		num = inp_number();
 		break;
-	case 3:
+	case 2:
 		anything = inp_type();
+		break;
+	case 3:
+		anything = inp_destination();
 		break;
 	}
 	//search & print
 	int i = 0;
-	while (tmp != NULL) {
-		switch (by_what) {
-		case 1:
-			if (tmp->entry.where == anything) {
-				cout << "[" << i << "] " << tmp->entry.where << " " << tmp->entry.num << " " << tmp->entry.type << " " << endl;
-				found = true;
-			}
-			break;
-		case 2:
-			if (tmp->entry.num == num) {
-				cout << "[" << i << "] " << tmp->entry.where << " " << tmp->entry.num << " " << tmp->entry.type << " " << endl;
-				return true;
-			}
-			break;
-		case 3:
-			if (tmp->entry.type == anything) {
-				cout << "[" << i << "] " << tmp->entry.where << " " << tmp->entry.num << " " << tmp->entry.type << " " << endl;
-				found = true;
-			}
-			break;
-		}
 
+	while (tmp != NULL) {
+		if (by_what == 1 && tmp->entry.num == num) {
+			cout << " №    рейс      тип    пункт назначения" << endl;
+			cout << "----------------------------------------" << endl;
+			cout << "[" << i << "] ";
+			cout << setw(5) << tmp->entry.num << " ";
+			cout << setw(10) << tmp->entry.type << "   ";
+			cout << tmp->entry.destination << endl;
+			return true;
+		}
+		if (by_what == 2 && tmp->entry.type == anything || by_what == 3 && tmp->entry.destination == anything) {
+			if (!found) {
+				cout << " №    рейс      тип    пункт назначения" << endl;
+				cout << "----------------------------------------" << endl;
+				found = true;
+			}
+			cout << "[" << i << "] ";
+			cout << setw(5) << tmp->entry.num << " ";
+			cout << setw(10) << tmp->entry.type << "   ";
+			cout << tmp->entry.destination << endl;
+		}
 		tmp = tmp->next;
 		i++;
 	}
@@ -343,11 +402,22 @@ bool search(LinearList*& h) { // 1 where, 2 num, 3 type
 }
 
 //MANIPULATION
-void edit(LinearList*& tmp, LinearList* head){
+void edit(LinearList*& head){
+	if (head == NULL) {
+		cout << "Пустой список." << endl;
+		return;
+	}
+	cout << "Введите индекс записи для редактирования (с 0): ";
+	int index = inp_number();
+	LinearList* tmp = head->getIndex(index);
+	if (tmp == NULL) {
+		cout << "Записи под таким индексом нет." << endl;
+		return;
+	}
 	int what_to;
 	string inp;
-	cout << "Запись "  << tmp->entry.where << " " << tmp->entry.num << " " << tmp->entry.type << " " << endl;
-	cout << "Чтобы изменить пункт назначения введите 1. Номер рейса 2. Тип самолёта 3." << endl;
+	cout << "Запись "  << tmp->entry.num << " " << tmp->entry.type << " " << tmp->entry.destination << " " << endl;
+	cout << "Введите чтобы изменить: 1 для номера рейса; 2 типа самолёта; 3 пункта назначения." << endl;
 	cin >> what_to;
 	while (cin.fail() || (what_to < 1) || (what_to > 3)) {
 		cin.clear();
@@ -356,27 +426,29 @@ void edit(LinearList*& tmp, LinearList* head){
 	}
 	switch (what_to) {
 	case 1:
-		inp = inp_where();
-		tmp->entry.where = inp;
-		break;
-	case 2:
 		cout << "Новый номер рейса: ";
 		what_to = inp_number();
-
+		if (what_to == tmp->entry.num) break;
 		while (!uniq_num(head, what_to)) {
-			cout << "\nЗапись с таким номером уже существует.\n";
+			cout << "Запись с таким номером уже существует.\nНовый номер рейса: ";
 			what_to = inp_number();
+			if (what_to == tmp->entry.num) break;
 		}
 		tmp->entry.num = what_to;
 		break;
-	case 3:
+	case 2:
 		inp = inp_type();
 		tmp->entry.type = inp;
 		break;
+	case 3:
+		inp = inp_destination();
+		tmp->entry.destination = inp;
+		break;
 	}
+	cout << "Успешно!" << endl;
 	return;
 }
-void AddListElem(aflot elem, LinearList*& head) {
+void AddListElem(AEROFLOT elem, LinearList*& head) {
 	LinearList* newCell = new LinearList;
 	newCell->entry = elem;
 	newCell->next = NULL;
@@ -390,40 +462,89 @@ void AddListElem(aflot elem, LinearList*& head) {
 		tmp->next = newCell;
 	}
 }
-bool DeleteListItem(int index, LinearList*& head) {
+void DeleteIndex(LinearList*& head) {
+	if (head == NULL) {
+		cout << "Пустой список." << endl;
+		return;
+	}
+	cout << "Введите индекс записи для удаления (с 0): ";
+	int index = inp_number();
+	if (index >= head->getSize()) {
+		cout << "Записи с таким индексом нет в списке." << endl;
+		return;
+	}
 	if (index == 0) { // item is in head: change head to next or nullify head
 		if (head->next) {
-			LinearList* temp = head->next;
-			head->entry = head->next->entry;
-			head->next = head->next->next;
+			LinearList* temp = head;
+			head = head->next;
 			delete temp;
 		}
 		else head = NULL;
-		return true;
+		cout << "Запись удалена." << endl;
+		return;
 	}
 	else {
 		LinearList* tempPrev = head->getIndex(index - 1);
-		if (tempPrev == NULL) return false;
 		LinearList* temp = tempPrev->next;
-		if (temp == NULL) return false;
 		tempPrev->next = temp->next;
 		delete temp;
-		return true;
+		cout << "Запись удалена." << endl;
+		return;
 
 	}
-	return false;
+}
+void DeleteNumber(LinearList*& head) {
+	if (head == NULL) {
+		cout << "Пустой список." << endl;
+		return;
+	}
+	cout << "Введите номер рейса для удаления: ";
+	int number = inp_number();
+	if (number == head->entry.num) { // item is in head: change head to next or nullify head
+		if (head->next) {
+			LinearList* temp = head;
+			head = head->next;
+			delete temp;
+		}
+		else head = NULL;
+		cout << "Запись удалена." << endl;
+		return;
+	}
+	LinearList* tempPrev = head;
+	LinearList* temp = tempPrev->next;
+	while (temp != NULL) {
+		if (temp->entry.num == number) {
+			tempPrev->next = temp->next;
+			delete temp;
+			cout << "Запись удалена." << endl;
+			return;
+		}
+		else {
+			tempPrev = tempPrev->next;
+			temp = temp->next;
+		}
+	}
+	cout << "Записи с таким номером нет." << endl;
+	return;
+}
+
+//DELETE
+void clear(LinearList*& head) {
+	if (head == NULL) return;
+	if (head->next) clear(head->next);
+	delete head;
 }
 
 //FILE
 bool fstore(LinearList* head) {
-	ofstream out_file("D:\\in-outs\\storage.txt");
+	ofstream out_file("D:\\in-outs\\out storage.txt");
 	if (!out_file.is_open()) {
-		cout << "Ошибка при открытии файла..?\n" << endl;
+		cout << "Ошибка при открытии файла..?" << endl;
 		return false;
 	}
 	LinearList* tmp = head;
 	while (tmp != NULL) {
-		out_file << tmp->entry.num << "/" << tmp->entry.type << "/" << tmp->entry.where << "/" << endl;
+		out_file << tmp->entry.num << "/" << tmp->entry.type << "/" << tmp->entry.destination << "/" << endl;
 		tmp = tmp->next;
 	}
 	out_file.close();
@@ -432,22 +553,26 @@ bool fstore(LinearList* head) {
 bool fget(LinearList*& head) {
 	ifstream inp_file("D:\\in-outs\\storage.txt");
 	if (!inp_file.is_open()) {
-		cout << "Ошибка при открытии файла..?\n" << endl;
+		cout << "Ошибка при открытии файла..?" << endl;
 		return false;
 	}
-	string str;
+	clear(head);
+	head = NULL;
+	string inp_line;
 	while (!inp_file.eof()) {
-		aflot new_entry;
-		getline(inp_file, str);
+		AEROFLOT new_entry;
+		getline(inp_file, inp_line);
+		string str = inp_line;
 		if (str.empty()) continue;
 		int pos = 0;
 		string part; 
 
 		int i = 0;
+		bool wrong = false;
 		while ((pos = str.find('/')) != string::npos)
 		{
 			if (i > 2) {
-				cout << "Запись " << str << " имеет неверный формат." << endl;
+				wrong = true;
 				break;
 			}
 			part = str.substr(0, pos); 
@@ -457,31 +582,39 @@ bool fget(LinearList*& head) {
 			case 0:
 				while (it != part.end() && isdigit(*it)) ++it;
 				if (part.empty() || it != part.end()) {
-					cout << "Запись " << str << " имеет неверный формат." << endl;
+					wrong = true;
+					break;
+				}
+				if (!uniq_num(head, stoi(part))) {
+					wrong = true;
 					break;
 				}
 				new_entry.num = stoi(part);
 				break;
-			case 1:
+			case 1:to_upper(part);
+				if (!valid_type(part)) {
+					wrong = true;
+					break;
+				}
 				new_entry.type = part;
 				break;
 			case 2:
-				new_entry.where = part;
+				to_uplow(part);
+				new_entry.destination = part;
 				break;
 			}
+			if (wrong) break;
 			i++;
 			str.erase(0, pos + 1);  // erase() function store the current positon and move to next part
+		}
+		if (i < 2 || wrong) {
+			cout << "Запись \"" << inp_line << "\" имеет неверный формат." << endl;
+			continue;
 		}
 		AddListElem(new_entry, head);
 	}
 	inp_file.close();
 	return true;
-}
-
-//DELETE
-void clear(LinearList*& head) {
-	if (head->next) clear(head->next);
-	delete head;
 }
 
 int main() {
@@ -495,15 +628,16 @@ int main() {
 
 	int menu_state = 0;
 	while (menu_state == 0) {
-		cout << "Введите 1, чтобы добавить запись." << endl;
-		cout << "Введите 2, чтобы удалить запись по индексу." << endl;
-		cout << "Введите 3, чтобы отредактировать запись по индексу." << endl;
-		cout << "Введите 4, чтобы найти запись." << endl;
-		cout << "Введите 5, чтобы вывести список на экран." << endl;
-		cout << "Введите 6, чтобы загрузить список в файл." << endl;
-		cout << "Введите 7, чтобы загрузить список из файла." << endl;
-		cout << "Введите 8, чтобы отсортировать список." << endl;
-		cout << "Введите 9 для выхода." << endl;
+		cout << "1 - Добавить запись" << endl;
+		cout << "2 - Удалить запись по индексу" << endl;
+		cout << "3 - Удалить запись по номеру рейса" << endl;
+		cout << "4 - Отредактировать запись по индексу" << endl;
+		cout << "5 - Найти запись" << endl;
+		cout << "6 - Вывести список на экран" << endl;
+		cout << "7 - Сохранить список в файл" << endl;
+		cout << "8 - Загрузить список из файла" << endl;
+		cout << "9 - Отсортировать список" << endl;
+		cout << "10 - Выход" << endl;
 
 		cin >> menu_state;
 		if (menu_state == 1) {
@@ -512,42 +646,30 @@ int main() {
 			menu_state = 0;
 		}
 		else if (menu_state == 2) { //по индексу
-			cout << "Введите индекс записи для удаления (с 0): ";
-
-			inpn = inp_number();
-			if (DeleteListItem(inpn, list))
-				cout << "Запись удалена." << endl;
-			else
-				cout << "Записи под таким индексом нет." << endl;
+			DeleteIndex(list);
 			menu_state = 0;
 		}
-		else if (menu_state == 3) {
-			cout << "Введите индекс записи для редактирования (с 0): ";
-
-			inpn = inp_number();
-			LinearList* elem = list->getIndex(inpn);
-			if (elem == NULL) {
-				cout << "Записи под таким индексом нет." << endl;
-				menu_state = 0;
-				continue;
-			}
-			edit(elem, list);
-			cout << "Успешно!" << endl;
+		else if (menu_state == 3) { //по номеру
+			DeleteNumber(list);
 			menu_state = 0;
 		}
 		else if (menu_state == 4) {
-			if (!search(list)) cout << "Таких записей нет." << endl;
+			edit(list);
 			menu_state = 0;
 		}
 		else if (menu_state == 5) {
-			list->print();
+			if (!search(list)) cout << "Таких записей нет." << endl;
 			menu_state = 0;
 		}
 		else if (menu_state == 6) {
-			if (fstore(list)) cout << "Успешно!" << endl;
+			list->print();
 			menu_state = 0;
 		}
 		else if (menu_state == 7) {
+			if (fstore(list)) cout << "Успешно!" << endl;
+			menu_state = 0;
+		}
+		else if (menu_state == 8) {
 			LinearList* new_l = NULL;
 			if (fget(new_l)) {
 				list = new_l;
@@ -555,20 +677,11 @@ int main() {
 			}
 			menu_state = 0;
 		}
-		else if (menu_state == 8) {
-			cout << "Чтобы отсортировать по пункту назначения введите 1. По номеру рейса 2. По типу самолёта 3." << endl;
-			cin >> inpn;
-			while (cin.fail() || (inpn < 1) || (inpn > 3)) {
-				cin.clear();
-				cin.ignore(cin.rdbuf()->in_avail());
-				cout << "Ошибка ввода, выберите действие: " << endl;
-				cin >> inpn;
-			}
-			sort_by(list, list->getSize(), inpn);
-			cout << "Список отсортирован." << endl;
+		else if (menu_state == 9) {
+			sort_start(list);
 			menu_state = 0;
 		}
-		else if (menu_state == 9) {
+		else if (menu_state == 10) {
 			break;
 		}
 		else {
@@ -583,15 +696,6 @@ int main() {
 
 	clear(list);
 	delete[] vocab;
-
-	//// Для обнаружения утечек памяти
-	//_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-	//_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
-	//_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
-	//_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDOUT);
-	//_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
-	//_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
-	//_CrtDumpMemoryLeaks();
 
 	return 0;
 }
