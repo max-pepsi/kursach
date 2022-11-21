@@ -362,6 +362,7 @@ bool search(LinearList*& h) { // 1 where, 2 num, 3 type
 	//input + checks
 	switch (by_what) {
 	case 1:
+		cout << "¬ведите номер рейса: ";
 		num = inp_number();
 		break;
 	case 2:
@@ -551,7 +552,7 @@ bool fstore(LinearList* head) {
 	return true;
 }
 bool fget(LinearList*& head) {
-	ifstream inp_file("D:\\in-outs\\storage.txt");
+	ifstream inp_file("D:\\in-outs\\failed storage.txt");
 	if (!inp_file.is_open()) {
 		cout << "ќшибка при открытии файла..?" << endl;
 		return false;
